@@ -36,16 +36,18 @@ def download_MNIST_dataset():
          transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
     )"""
 
-    trainset = torchvision.datasets.MNIST(root='./data', train=True, download=False, transform=torchvision.transforms.Compose([
-                               torchvision.transforms.ToTensor(),
-                               torchvision.transforms.Normalize(
-                                 (0.1307,), (0.3081,))
-                             ]))
-    testset = torchvision.datasets.MNIST(root='./data', train=False, download=False, transform=torchvision.transforms.Compose([
-                               torchvision.transforms.ToTensor(),
-                               torchvision.transforms.Normalize(
-                                 (0.1307,), (0.3081,))
-                             ]))
+    trainset = torchvision.datasets.MNIST(root='./data', train=True, download=False,
+                                          transform=torchvision.transforms.Compose([
+                                              torchvision.transforms.ToTensor(),
+                                              torchvision.transforms.Normalize(
+                                                  (0.1307,), (0.3081,))
+                                          ]))
+    testset = torchvision.datasets.MNIST(root='./data', train=False, download=False,
+                                         transform=torchvision.transforms.Compose([
+                                             torchvision.transforms.ToTensor(),
+                                             torchvision.transforms.Normalize(
+                                                 (0.1307,), (0.3081,))
+                                         ]))
 
     return trainset, testset
 
@@ -63,6 +65,7 @@ def load_datasets(trainset, testset):
     plt.show()
 '''
 
+
 def show_img(test_loader):
     examples = enumerate(test_loader)
     batch_idx, (example_data, example_targets) = next(examples)
@@ -78,6 +81,7 @@ def show_img(test_loader):
         plt.xticks([])
         plt.yticks([])
     fig.show()
+
 
 class Net(nn.Module):
     def __init__(self):
@@ -97,8 +101,9 @@ class Net(nn.Module):
         x = self.fc2(x)
         return F.log_softmax(x)
 
+
 def train(params):
-    etwork, epoch, train_loader, optimizer, train_losses, train_counter = params
+    network, epoch, train_loader, optimizer, train_losses, train_counter = params
     network.train()
     for batch_idx, (data, target) in enumerate(train_loader):
         optimizer.zero_grad()
@@ -107,14 +112,17 @@ def train(params):
         loss.backward()
         optimizer.step()
         if batch_idx % log_interval == 0:
-            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(epoch, batch_idx * len(data), len(train_loader.dataset),
-                                                                           100. * batch_idx / len(train_loader), loss.item()))
+            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(epoch, batch_idx * len(data),
+                                                                           len(train_loader.dataset),
+                                                                           100. * batch_idx / len(train_loader),
+                                                                           loss.item()))
             train_losses.append(loss.item())
             train_counter.append(
-                (batch_idx * 64) + ((epoch-1)*len(train_loader.dataset)))
+                (batch_idx * 64) + ((epoch - 1) * len(train_loader.dataset)))
 
     params = network, train_loader, optimizer, train_losses, train_counter
     return params
+
 
 def test(network, test_loader):
     network.eval()
@@ -133,6 +141,7 @@ def test(network, test_loader):
         100. * correct / len(test_loader.dataset)))
     return network, test_loader
 
+
 def evaluation(train_counter, train_losses, test_counter, test_losses):
     fig = plt.figure()
     plt.plot(train_counter, train_losses, color="blue")
@@ -141,6 +150,7 @@ def evaluation(train_counter, train_losses, test_counter, test_losses):
     plt.xlabel("number of training examples seen")
     plt.ylabel("negative log likelihood loss")
     fig.show()
+
 
 def plot_prediction(test_loader):
     examples = enumerate(test_loader)
@@ -159,6 +169,7 @@ def plot_prediction(test_loader):
         plt.yticks([])
     fig.show()
 
+
 if __name__ == '__main__':
     trainset, testset = download_MNIST_dataset()
     train_loader, test_loader = load_datasets(trainset, testset)
@@ -169,7 +180,7 @@ if __name__ == '__main__':
     train_losses = []
     train_counter = []
     test_losses = []
-    test_counter = [i*len(train_loader.dataset) for i in range(n_epochs + 1)]
+    test_counter = [i * len(train_loader.dataset) for i in range(n_epochs + 1)]
 
     network, test_loader = test(network, test_loader)
     for epoch in range(1, n_epochs + 1):
