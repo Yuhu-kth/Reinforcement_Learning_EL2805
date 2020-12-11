@@ -37,7 +37,7 @@ DIM_STATES = 8  # State dimensionality
 DISCOUNT = 0.1
 BUFFER_SIZE = 5000  # Should be 5000-30000
 BUFFER_EXP_START = 5
-N_EPISODES = 100  # Should be 100-1000
+N_EPISODES = 1000  # Should be 100-1000
 Z = N_EPISODES * 0.95  # Z is usually 90 − 95% of the total number of episodes
 BATCH_SIZE_N = 4  # Should 4-128
 C = BUFFER_SIZE / BATCH_SIZE_N  # Update frequency of the target neural network
@@ -60,7 +60,6 @@ def training_random():
     env.reset()
 
     # Parameters
-    N_EPISODES = 100  # Number of episodes
     discount_factor = 0.95  # Value of the discount factor
     N_EP_RUNNING_AVERAGE = 50  # Running average of 50 episodes
     n_actions = env.action_space.n  # Number of available actions
@@ -88,7 +87,7 @@ def training_random():
         total_episode_reward = 0.
         t = 0
         while not done:
-            env.render()
+            #env.render()
 
             # Take a random action
             action = agent.forward(state)
@@ -98,7 +97,7 @@ def training_random():
             # False otherwise
             next_state, reward, done, _ = env.step(action)
 
-            Utils.print_SARSD(state, action, next_state, reward, done)
+            #Utils.print_SARSD(state, action, next_state, reward, done)
 
             # Update episode reward
             total_episode_reward += reward
@@ -188,6 +187,8 @@ def training_DQN():
     Utils.plot_reward_and_steps(N_EPISODES, episode_reward_list, episode_number_of_steps, Utils.running_average,
                                 N_EP_RUNNING_AVERAGE)
 
+    return agent
+
 
 def q_step(k, agent, state, env, buffer, target, optimizer, t):
     action = eps_greedy(k, agent, state)
@@ -213,9 +214,10 @@ def q_step(k, agent, state, env, buffer, target, optimizer, t):
     y_tensor = torch.tensor(y, requires_grad=False, dtype=torch.float32)
 
     # Compute loss function
-    loss = functional.mse_loss(predicted_actions, y_tensor)
+    loss = functional.mse_loss(y_tensor, predicted_actions)
 
-    Utils.print_loss(k, loss.item())
+    # Compute gradient
+    loss.backward()
 
     # Clip gradient norm to 1
     nn.utils.clip_grad_norm_(agent.parameters(), max_norm=1.)
@@ -238,7 +240,7 @@ def eps_greedy(k, agent, state):
         state_tensor = torch.tensor(state, requires_grad=False, dtype=torch.float32)
         # Returns the argmax of the network
         no_mask = torch.tensor(np.ones(N_ACTIONS), requires_grad=False, dtype=torch.float32)
-        return torch.argmax(agent(state_tensor, create_no_mask_tensor())).item()
+        return torch.argmax(agent(state_tensor, no_mask)).item()
 
 
 def target_values_y(rewards, target, next_states, done):
@@ -301,5 +303,5 @@ def init_buffer():
 
 
 if __name__ == '__main__':
-    # training_random()
-    training_DQN()
+    #training_random()
+    agent = training_DQN()
