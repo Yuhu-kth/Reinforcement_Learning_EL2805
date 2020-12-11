@@ -15,22 +15,34 @@
 
 # Load packages
 import numpy as np
+import gym.envs.box2d.lunar_lander
 import gym
 import torch
 from tqdm import trange
 from Lab2.problem1.DQN_agent import RandomAgent
+from Lab2.problem1 import Utils as Utils
+
+#############################################
+
+#  Hyper parameters
+DISCOUNT = 0.1
+BUFFER_SIZE = 5000  # Should be 5000-30000
+N_EPISODES = 100  # Should be 100-1000
+BATCH_SIZE = 4  # Should 4-128
+C = BUFFER_SIZE / BATCH_SIZE  # Update frequency of the target neural network
+
+# Hyper parameters, Neural Network
+LEARNING_RATE = 10e-4  # Should be between 10e-3 and 10e-4
+OPTIMIZER = torch.optim.adam
+CLIPPING_VALUE = 0.5  # 0.5 and 2
+N_HIDDEN_LAYERS = 1  # Should not be more than 2
+HIDDEN_SIZE = 8  # Should be between 8-128
+
+# Training Procedure
+N_EPISODE_AVERAGE = 50
 
 
-def running_average(x, N):
-    ''' Function used to compute the running average
-        of the last N elements of a vector x
-    '''
-    if len(x) >= N:
-        y = np.copy(x)
-        y[N - 1:] = np.convolve(x, np.ones((N,)) / N, mode='valid')
-    else:
-        y = np.zeros_like(x)
-    return y
+##############################################
 
 def training():
     # Import and initialize the discrete Lunar Laner Environment
@@ -61,17 +73,22 @@ def training():
     for i in EPISODES:
         # Reset enviroment data and initialize variables
         done = False
-        state = env.reset()
+        state = env.reset()  # State shape (x-pos, y-pos, x-velocity, y-velocity, lander-angle, angular-velocity,
+        # left-contact point bool, right-contact point bool)
         total_episode_reward = 0.
         t = 0
         while not done:
+            env.render()
+
             # Take a random action
-            action = agent.forward(state)
+            # action = agent.forward(state)
 
             # Get next state and reward.  The done variable
             # will be True if you reached the goal position,
             # False otherwise
             next_state, reward, done, _ = env.step(action)
+
+            Utils.print_SARSD(state, action, next_state, reward, done)
 
             # Update episode reward
             total_episode_reward += reward
@@ -95,6 +112,22 @@ def training():
                 i, total_episode_reward, t,
                 running_average(episode_reward_list, n_ep_running_average)[-1],
                 running_average(episode_number_of_steps, n_ep_running_average)[-1]))
+
+    Utils.plot_reward_and_steps(N_episodes, episode_reward_list, episode_number_of_steps, running_average,
+                                n_ep_running_average)
+
+
+def running_average(x, N):
+    ''' Function used to compute the running average
+        of the last N elements of a vector x
+    '''
+    if len(x) >= N:
+        y = np.copy(x)
+        y[N - 1:] = np.convolve(x, np.ones((N,)) / N, mode='valid')
+    else:
+        y = np.zeros_like(x)
+    return y
+
 
 if __name__ == '__main__':
     training()

@@ -15,6 +15,10 @@
 
 # Load packages
 import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional
+import torch.optim as optim
 
 class Agent(object):
     ''' Base agent class, used as a parent class
@@ -53,3 +57,20 @@ class RandomAgent(Agent):
         '''
         self.last_action = np.random.randint(0, self.n_actions)
         return self.last_action
+
+#TODO Define the network for the agent
+
+# Will also be used for Target Network
+class DQNAgent(Agent, nn.Module):
+    def __init__(self, state_space_size, n_actions: int):
+        super().__init__(n_actions)
+        self.n_actions = n_actions
+        self.last_action = None
+
+    def forward(self, state: np.ndarray):
+        ''' Performs a forward computation '''
+        pass
+
+    def backward(self):
+        ''' Performs a backward pass on the network '''
+        pass
