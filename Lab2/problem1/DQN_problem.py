@@ -274,8 +274,8 @@ def init_buffer():
             state = next_state
             t += 1
 
-    # Close environment
-    env.close()
+        # Close environment
+        env.close()
 
     return buffer
 
