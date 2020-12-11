@@ -72,9 +72,9 @@ class RandomAgent(Agent):
 ###########################################
 
 # Will also be used for Target Network
-class DQNAgentHidden1(Agent, nn.Module):
+class DQNAgentHidden1(nn.Module):
     def __init__(self, state_space_size: int, n_actions: int):
-        super().__init__(n_actions)
+        super().__init__()
         # N hidden layers should not be more than 2
 
         self.hidden_size = 8  # Should be between 8-128
@@ -82,15 +82,16 @@ class DQNAgentHidden1(Agent, nn.Module):
         self.input_layer_activation = nn.ReLU()
         self.output_layer = nn.Linear(self.hidden_size, n_actions)
 
-
-    def forward(self, state: np.ndarray):
+    # State is 8-dim array representation of the state
+    # Action is a one-hot encoded array during training indicating what action is relevant for training
+    def forward(self, state, action):
         # Compute first layer
         l1 = self.input_layer(state)
         l1 = self.input_layer_activation(l1)
 
         # Compute output layer
         out = self.output_layer(l1)
-        return out
+        return out * action
 
     def backward(self):
         ''' Performs a backward pass on the network '''

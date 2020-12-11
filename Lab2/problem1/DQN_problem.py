@@ -158,7 +158,7 @@ def training_DQN():
         total_episode_reward = 0.
         t = 0
         while not done:
-            env.render()
+            # env.render()
 
             next_state, reward, done = q_step(k, agent, state, env, buffer, target, optimizer, t)
 
@@ -196,16 +196,24 @@ def q_step(k, agent, state, env, buffer, target, optimizer, t):
     exp_z = Experience(state, action, reward, next_state, done)
     buffer.append(exp_z)
 
-    Utils.print_SARSD(state, action, next_state, reward, done)
+    # Utils.print_SARSD(state, action, next_state, reward, done)
 
     states, actions, rewards, next_states, dones = buffer.sample_batch(n=BATCH_SIZE_N)
     y = target_values_y(rewards, target, next_states, done)
+    y = np.array([y, ] * N_ACTIONS).transpose()
 
-    predicted_actions = agent(torch.tensor(states, requires_grad=True, dtype=torch.float32)).numpy()
-    predicted_actions = predicted_actions[np.where(actions) + (actions,)]
+    actions_mask = np.zeros((BATCH_SIZE_N, N_ACTIONS))
+    actions_mask[np.arange(BATCH_SIZE_N), actions] = 1
+
+    y *= actions_mask
+    states_tensor = torch.tensor(states, requires_grad=True, dtype=torch.float32)
+    action_mask_tensor = torch.tensor(actions_mask, requires_grad=False, dtype=torch.float32)
+
+    predicted_actions = agent(states_tensor, action_mask_tensor)
+    y_tensor = torch.tensor(y, requires_grad=False, dtype=torch.float32)
 
     # Compute loss function
-    loss = functional.mse_loss(predicted_actions, y)
+    loss = functional.mse_loss(predicted_actions, y_tensor)
 
     Utils.print_loss(k, loss.item())
 
@@ -216,7 +224,7 @@ def q_step(k, agent, state, env, buffer, target, optimizer, t):
     optimizer.step()
 
     if t % C == 0:
-        target = agent.copy()
+        target.load_state_dict(agent.state_dict())
 
     return next_state, reward, done
 
@@ -227,15 +235,24 @@ def eps_greedy(k, agent, state):
     if p < eps_k:
         return np.random.choice(N_ACTIONS)
     else:
-        return np.argmax(agent(state, requires_grad=True, dtype=torch.float32))
+        state_tensor = torch.tensor(state, requires_grad=False, dtype=torch.float32)
+        # Returns the argmax of the network
+        no_mask = torch.tensor(np.ones(N_ACTIONS), requires_grad=False, dtype=torch.float32)
+        return torch.argmax(agent(state_tensor, create_no_mask_tensor())).item()
 
 
 def target_values_y(rewards, target, next_states, done):
     if not done:
-        Q_theta_prime = np.max(target(torch.tensor(next_states, requires_grad=False, dtype=torch.float32)), axis=0)
+        states_tensor = torch.tensor(next_states, requires_grad=False, dtype=torch.float32)
+        action_mask_tensor = create_no_mask_tensor()
+        Q_theta_prime = target(states_tensor, action_mask_tensor).max(1)[0].detach().numpy()
         return rewards + DISCOUNT * Q_theta_prime
     else:
         return rewards
+
+
+def create_no_mask_tensor():
+    return torch.tensor(np.ones((BATCH_SIZE_N, N_ACTIONS)), requires_grad=False, dtype=torch.float32)
 
 
 def init_buffer():
@@ -284,4 +301,5 @@ def init_buffer():
 
 
 if __name__ == '__main__':
-    training_random()
+    # training_random()
+    training_DQN()
