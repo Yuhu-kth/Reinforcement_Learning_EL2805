@@ -1,9 +1,11 @@
 import matplotlib.pyplot as plt
+import numpy as np
 
 STATE_LAYOUT = ["x-pos", "y-pos", "x-velocity", "y-velocity", "lander-angle", "angular-velocity",
-        "left-contact point bool", "right-contact point bool"]
+                "left-contact point bool", "right-contact point bool"]
 
 ACTIONS = ["Do nothing", "fire left orientation engine", "fire main engine", "fire right orientation engine"]
+
 
 def plot_reward_and_steps(N_episodes, episode_reward_list, episode_number_of_steps, running_average,
                           n_ep_running_average):
@@ -28,6 +30,7 @@ def plot_reward_and_steps(N_episodes, episode_reward_list, episode_number_of_ste
     ax[1].grid(alpha=0.3)
     plt.show()
 
+
 def print_SARSD(state, action, next_state, reward, done):
     print("State layout: ", STATE_LAYOUT)
     print("State: ", state)
@@ -36,3 +39,29 @@ def print_SARSD(state, action, next_state, reward, done):
     print("Reward: ", reward)
     print("Is done: ", done)
     print("--------------------------------------")
+
+
+def print_loss(episode, loss):
+    print("Loss for episode " + str(episode) + ": ", loss)
+
+
+def running_average(x, N):
+    ''' Function used to compute the running average
+        of the last N elements of a vector x
+    '''
+    if len(x) >= N:
+        y = np.copy(x)
+        y[N - 1:] = np.convolve(x, np.ones((N,)) / N, mode='valid')
+    else:
+        y = np.zeros_like(x)
+    return y
+
+
+def decay_linear(eps_min, eps_max, k, Z):
+    value_2 = eps_max - (eps_max - eps_min) * (k - 1) / (Z - 1)
+    return np.max((eps_min, value_2))
+
+
+def decay_exp(eps_min, eps_max, k, Z):
+    value_2 = eps_max * (eps_min / eps_max) ** ((k - 1) / (Z - 1))
+    return np.max((eps_min, value_2))

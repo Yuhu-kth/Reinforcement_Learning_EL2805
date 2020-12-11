@@ -1,5 +1,9 @@
 import numpy as np
-from collections import deque
+from collections import deque, namedtuple
+
+Experience = namedtuple('Experience',
+                        ['state', 'action', 'reward', 'next_state', 'done'])
+
 
 class ExperienceReplayBuffer(object):
     """ Class used to store a buffer containing experiences of the RL agent.

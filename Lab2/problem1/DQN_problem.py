@@ -18,41 +18,51 @@ import numpy as np
 import gym.envs.box2d.lunar_lander
 import gym
 import torch
+import torch.nn.functional as functional
+import torch.nn as nn
 from tqdm import trange
+from Lab2.problem1.ExperienceReplayBuffer import ExperienceReplayBuffer, Experience
 from Lab2.problem1.DQN_agent import RandomAgent
+from Lab2.problem1.DQN_agent import DQNAgentHidden1
 from Lab2.problem1 import Utils as Utils
 
 #############################################
 
+
+# Environmental Parameters
+N_ACTIONS = 4  # Number of available actions
+DIM_STATES = 8  # State dimensionality
+
 #  Hyper parameters
 DISCOUNT = 0.1
 BUFFER_SIZE = 5000  # Should be 5000-30000
+BUFFER_EXP_START = 5
 N_EPISODES = 100  # Should be 100-1000
-BATCH_SIZE = 4  # Should 4-128
-C = BUFFER_SIZE / BATCH_SIZE  # Update frequency of the target neural network
+Z = N_EPISODES * 0.95  # Z is usually 90 − 95% of the total number of episodes
+BATCH_SIZE_N = 4  # Should 4-128
+C = BUFFER_SIZE / BATCH_SIZE_N  # Update frequency of the target neural network
+DECAY_MAX = 0.99
+DECAY_MIN = 0.05
 
 # Hyper parameters, Neural Network
 LEARNING_RATE = 10e-4  # Should be between 10e-3 and 10e-4
-OPTIMIZER = torch.optim.adam
 CLIPPING_VALUE = 0.5  # 0.5 and 2
-N_HIDDEN_LAYERS = 1  # Should not be more than 2
-HIDDEN_SIZE = 8  # Should be between 8-128
 
 # Training Procedure
-N_EPISODE_AVERAGE = 50
+N_EP_RUNNING_AVERAGE = 50
 
 
 ##############################################
 
-def training():
+def training_random():
     # Import and initialize the discrete Lunar Laner Environment
     env = gym.make('LunarLander-v2')
     env.reset()
 
     # Parameters
-    N_episodes = 100  # Number of episodes
+    N_EPISODES = 100  # Number of episodes
     discount_factor = 0.95  # Value of the discount factor
-    n_ep_running_average = 50  # Running average of 50 episodes
+    N_EP_RUNNING_AVERAGE = 50  # Running average of 50 episodes
     n_actions = env.action_space.n  # Number of available actions
     dim_state = len(env.observation_space.high)  # State dimensionality
 
@@ -68,7 +78,7 @@ def training():
 
     # trange is an alternative to range in python, from the tqdm library
     # It shows a nice progression bar that you can update with useful information
-    EPISODES = trange(N_episodes, desc='Episode: ', leave=True)
+    EPISODES = trange(N_EPISODES, desc='Episode: ', leave=True)
 
     for i in EPISODES:
         # Reset enviroment data and initialize variables
@@ -81,7 +91,7 @@ def training():
             env.render()
 
             # Take a random action
-            # action = agent.forward(state)
+            action = agent.forward(state)
 
             # Get next state and reward.  The done variable
             # will be True if you reached the goal position,
@@ -110,24 +120,168 @@ def training():
         EPISODES.set_description(
             "Episode {} - Reward/Steps: {:.1f}/{} - Avg. Reward/Steps: {:.1f}/{}".format(
                 i, total_episode_reward, t,
-                running_average(episode_reward_list, n_ep_running_average)[-1],
-                running_average(episode_number_of_steps, n_ep_running_average)[-1]))
+                Utils.running_average(episode_reward_list, N_EP_RUNNING_AVERAGE)[-1],
+                Utils.running_average(episode_number_of_steps, N_EP_RUNNING_AVERAGE)[-1]))
 
-    Utils.plot_reward_and_steps(N_episodes, episode_reward_list, episode_number_of_steps, running_average,
-                                n_ep_running_average)
+    Utils.plot_reward_and_steps(N_EPISODES, episode_reward_list, episode_number_of_steps, Utils.running_average,
+                                N_EP_RUNNING_AVERAGE)
 
 
-def running_average(x, N):
-    ''' Function used to compute the running average
-        of the last N elements of a vector x
-    '''
-    if len(x) >= N:
-        y = np.copy(x)
-        y[N - 1:] = np.convolve(x, np.ones((N,)) / N, mode='valid')
+def training_DQN():
+    # Import and initialize the discrete Lunar Laner Environment
+    env = gym.make('LunarLander-v2')
+    env.reset()
+
+    # We will use these variables to compute the average episodic reward and
+    # the average number of steps per episode
+    episode_reward_list = []  # this list contains the total reward per episode
+    episode_number_of_steps = []  # this list contains the number of steps per episode
+
+    buffer = init_buffer()
+
+    agent = DQNAgentHidden1(DIM_STATES, N_ACTIONS)
+    target = DQNAgentHidden1(DIM_STATES, N_ACTIONS)
+
+    optimizer = torch.optim.Adam(agent.parameters(), lr=LEARNING_RATE)
+
+    ### Training process
+
+    # trange is an alternative to range in python, from the tqdm library
+    # It shows a nice progression bar that you can update with useful information
+    EPISODES = trange(N_EPISODES, desc='Episode: ', leave=True)
+
+    for k in EPISODES:
+        # Reset environment data and initialize variables
+        done = False
+        state = env.reset()  # State shape (x-pos, y-pos, x-velocity, y-velocity, lander-angle, angular-velocity,
+        # left-contact point bool, right-contact point bool)
+        total_episode_reward = 0.
+        t = 0
+        while not done:
+            env.render()
+
+            next_state, reward, done = q_step(k, agent, state, env, buffer, target, optimizer, t)
+
+            # Update episode reward
+            total_episode_reward += reward
+
+            # Update state for next iteration
+            state = next_state
+            t += 1
+
+        # Append episode reward and total number of steps
+        episode_reward_list.append(total_episode_reward)
+        episode_number_of_steps.append(t)
+
+        # Close environment
+        env.close()
+
+        # Updates the tqdm update bar with fresh information
+        # (episode number, total reward of the last episode, total number of Steps
+        # of the last episode, average reward, average number of steps)
+        EPISODES.set_description(
+            "Episode {} - Reward/Steps: {:.1f}/{} - Avg. Reward/Steps: {:.1f}/{}".format(
+                k, total_episode_reward, t,
+                Utils.running_average(episode_reward_list, N_EP_RUNNING_AVERAGE)[-1],
+                Utils.running_average(episode_number_of_steps, N_EP_RUNNING_AVERAGE)[-1]))
+
+    Utils.plot_reward_and_steps(N_EPISODES, episode_reward_list, episode_number_of_steps, Utils.running_average,
+                                N_EP_RUNNING_AVERAGE)
+
+
+def q_step(k, agent, state, env, buffer, target, optimizer, t):
+    action = eps_greedy(k, agent, state)
+    next_state, reward, done, _ = env.step(action)
+    # Append experience to the buffer
+    exp_z = Experience(state, action, reward, next_state, done)
+    buffer.append(exp_z)
+
+    Utils.print_SARSD(state, action, next_state, reward, done)
+
+    states, actions, rewards, next_states, dones = buffer.sample_batch(n=BATCH_SIZE_N)
+    y = target_values_y(rewards, target, next_states, done)
+
+    predicted_actions = agent(torch.tensor(states, requires_grad=True, dtype=torch.float32)).numpy()
+    predicted_actions = predicted_actions[np.where(actions) + (actions,)]
+
+    # Compute loss function
+    loss = functional.mse_loss(predicted_actions, y)
+
+    Utils.print_loss(k, loss.item())
+
+    # Clip gradient norm to 1
+    nn.utils.clip_grad_norm_(agent.parameters(), max_norm=1.)
+
+    # Perform backward pass (backpropagation)
+    optimizer.step()
+
+    if t % C == 0:
+        target = agent.copy()
+
+    return next_state, reward, done
+
+
+def eps_greedy(k, agent, state):
+    eps_k = Utils.decay_linear(DECAY_MIN, DECAY_MAX, k, Z)
+    p = np.random.random()
+    if p < eps_k:
+        return np.random.choice(N_ACTIONS)
     else:
-        y = np.zeros_like(x)
-    return y
+        return np.argmax(agent(state, requires_grad=True, dtype=torch.float32))
+
+
+def target_values_y(rewards, target, next_states, done):
+    if not done:
+        Q_theta_prime = np.max(target(torch.tensor(next_states, requires_grad=False, dtype=torch.float32)), axis=0)
+        return rewards + DISCOUNT * Q_theta_prime
+    else:
+        return rewards
+
+
+def init_buffer():
+    print("### Creating and filling buffer")
+
+    buffer = ExperienceReplayBuffer(maximum_length=BUFFER_SIZE)
+    env = gym.make('LunarLander-v2')
+    env.reset()
+
+    agent = RandomAgent(N_ACTIONS)
+
+    for i in range(BUFFER_EXP_START):
+        # Reset environment data and initialize variables
+        done = False
+        state = env.reset()  # State shape (x-pos, y-pos, x-velocity, y-velocity, lander-angle, angular-velocity,
+        # left-contact point bool, right-contact point bool)
+        total_episode_reward = 0.
+        t = 0
+        while not done:
+            # Take a random action
+            action = agent.forward(state)
+
+            # Get next state and reward.  The done variable
+            # will be True if you reached the goal position,
+            # False otherwise
+            next_state, reward, done, _ = env.step(action)
+
+            # Update episode reward
+            total_episode_reward += reward
+
+            # Append experience to the buffer
+            exp = Experience(state, action, reward, next_state, done)
+            buffer.append(exp)
+
+            # Update state for next iteration
+            state = next_state
+            t += 1
+
+    # Close environment
+    env.close()
+
+    return buffer
+
+
+# TODO Write a load and running routine
 
 
 if __name__ == '__main__':
-    training()
+    training_random()
