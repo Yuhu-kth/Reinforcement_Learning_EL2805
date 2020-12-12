@@ -28,6 +28,7 @@ from Lab2.problem1 import Utils as Utils
 
 #############################################
 
+MODEL_URL = "./Model"
 
 # Environmental Parameters
 N_ACTIONS = 4  # Number of available actions
@@ -54,7 +55,7 @@ N_EP_RUNNING_AVERAGE = 50
 
 ##############################################
 
-def training_random():
+def trial_run(agent, random=False):
     # Import and initialize the discrete Lunar Laner Environment
     env = gym.make('LunarLander-v2')
     env.reset()
@@ -70,8 +71,6 @@ def training_random():
     episode_reward_list = []  # this list contains the total reward per episode
     episode_number_of_steps = []  # this list contains the number of steps per episode
 
-    # Random agent initialization
-    agent = RandomAgent(n_actions)
 
     ### Training process
 
@@ -87,10 +86,16 @@ def training_random():
         total_episode_reward = 0.
         t = 0
         while not done:
-            #env.render()
+            env.render()
 
-            # Take a random action
-            action = agent.forward(state)
+            if random:
+                # Take a random action
+                action = agent.forward(state)
+            else:
+                state_tensor = torch.tensor(state, requires_grad=False, dtype=torch.float32)
+                # Returns the argmax of the network
+                no_mask = torch.tensor(np.ones(N_ACTIONS), requires_grad=False, dtype=torch.float32)
+                action = torch.argmax(agent(state_tensor, no_mask)).item()
 
             # Get next state and reward.  The done variable
             # will be True if you reached the goal position,
@@ -187,7 +192,18 @@ def training_DQN():
     Utils.plot_reward_and_steps(N_EPISODES, episode_reward_list, episode_number_of_steps, Utils.running_average,
                                 N_EP_RUNNING_AVERAGE)
 
+    save_model(agent)
+
     return agent
+
+
+def save_model(model):
+    torch.save(model.state_dict(), MODEL_URL)
+
+
+def load_model(model):
+    ### Load model ###
+    model.load_state_dict(torch.load(MODEL_URL))
 
 
 def q_step(k, agent, state, env, buffer, target, optimizer, t):
@@ -303,5 +319,9 @@ def init_buffer():
 
 
 if __name__ == '__main__':
-    #training_random()
-    agent = training_DQN()
+    # Random agent initialization
+    # agent = RandomAgent(n_actions)
+    # agent = training_DQN()
+    agent = DQNAgentHidden1(DIM_STATES, N_ACTIONS)
+    load_model(agent)
+    trial_run(agent, random=False)
