@@ -24,20 +24,20 @@ from tqdm import trange
 from Lab2.problem1.ExperienceReplayBuffer import ExperienceReplayBuffer, Experience
 from Lab2.problem1.DQN_agent import RandomAgent
 from Lab2.problem1.DQN_agent import DQNAgentHidden1
+from Lab2.problem1.DQN_agent import DQNAgentHidden2Neuron64
 from Lab2.problem1 import Utils as Utils
 
 #############################################
-
-MODEL_URL = "./Model"
+### Used for 2 Hidden, 64 Neurons ###
 
 # Environmental Parameters
 N_ACTIONS = 4  # Number of available actions
 DIM_STATES = 8  # State dimensionality
 
 #  Hyper parameters
-DISCOUNT = 0.1
+DISCOUNT = 0.01
 BUFFER_SIZE = 5000  # Should be 5000-30000
-BUFFER_EXP_START = 5
+BUFFER_EXP_START = 4
 N_EPISODES = 1000  # Should be 100-1000
 Z = N_EPISODES * 0.95  # Z is usually 90 − 95% of the total number of episodes
 BATCH_SIZE_N = 4  # Should 4-128
@@ -54,6 +54,7 @@ N_EP_RUNNING_AVERAGE = 50
 
 
 ##############################################
+
 
 def trial_run(agent, random=False):
     # Import and initialize the discrete Lunar Laner Environment
@@ -131,7 +132,7 @@ def trial_run(agent, random=False):
                                 N_EP_RUNNING_AVERAGE)
 
 
-def training_DQN():
+def training_DQN(agent, target, URL):
     # Import and initialize the discrete Lunar Laner Environment
     env = gym.make('LunarLander-v2')
     env.reset()
@@ -143,8 +144,8 @@ def training_DQN():
 
     buffer = init_buffer()
 
-    agent = DQNAgentHidden1(DIM_STATES, N_ACTIONS)
-    target = DQNAgentHidden1(DIM_STATES, N_ACTIONS)
+    # agent = DQNAgentHidden1(DIM_STATES, N_ACTIONS)
+    # target = DQNAgentHidden1(DIM_STATES, N_ACTIONS)
 
     optimizer = torch.optim.Adam(agent.parameters(), lr=LEARNING_RATE)
 
@@ -192,18 +193,18 @@ def training_DQN():
     Utils.plot_reward_and_steps(N_EPISODES, episode_reward_list, episode_number_of_steps, Utils.running_average,
                                 N_EP_RUNNING_AVERAGE)
 
-    save_model(agent)
+    save_model(agent, URL)
 
-    return agent
-
-
-def save_model(model):
-    torch.save(model.state_dict(), MODEL_URL)
+    #return agent
 
 
-def load_model(model):
+def save_model(model, URL):
+    torch.save(model.state_dict(), URL)
+
+
+def load_model(model, URL):
     ### Load model ###
-    model.load_state_dict(torch.load(MODEL_URL))
+    model.load_state_dict(torch.load(URL))
 
 
 def q_step(k, agent, state, env, buffer, target, optimizer, t):
@@ -319,9 +320,19 @@ def init_buffer():
 
 
 if __name__ == '__main__':
+    # model_url = "./Model1Hidden8Neurons"
+    # model_url = "./Model2Hidden64Neurons"
+    model_url = "./Model1Hidden32Neurons"
+
     # Random agent initialization
-    # agent = RandomAgent(n_actions)
-    # agent = training_DQN()
+    # agent = RandomAgent(N_ACTIONS)
+
+    # agent = DQNAgentHidden2Neuron64(DIM_STATES, N_ACTIONS)
+    # target = DQNAgentHidden2Neuron64(DIM_STATES, N_ACTIONS)
+    # training_DQN(agent, target, model_url)
+
     agent = DQNAgentHidden1(DIM_STATES, N_ACTIONS)
-    load_model(agent)
-    trial_run(agent, random=False)
+    load_model(agent, model_url)
+
+
+    # trial_run(agent, random=False)
