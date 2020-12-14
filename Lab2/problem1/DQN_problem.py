@@ -24,7 +24,7 @@ from tqdm import trange
 from Lab2.problem1.ExperienceReplayBuffer import ExperienceReplayBuffer, Experience
 from Lab2.problem1.DQN_agent import RandomAgent
 from Lab2.problem1.DQN_agent import DQNAgentHidden1
-from Lab2.problem1.DQN_agent import DQNAgentHidden2Neuron64
+from Lab2.problem1.DQN_agent import DQNAgentHidden2
 from Lab2.problem1 import Utils as Utils
 
 #############################################
@@ -35,9 +35,9 @@ N_ACTIONS = 4  # Number of available actions
 DIM_STATES = 8  # State dimensionality
 
 #  Hyper parameters
-DISCOUNT = 0.01
+DISCOUNT = 0.1
 BUFFER_SIZE = 5000  # Should be 5000-30000
-BUFFER_EXP_START = 4
+BUFFER_EXP_START = 5
 N_EPISODES = 1000  # Should be 100-1000
 Z = N_EPISODES * 0.95  # Z is usually 90 − 95% of the total number of episodes
 BATCH_SIZE_N = 4  # Should 4-128
@@ -51,7 +51,7 @@ CLIPPING_VALUE = 0.5  # 0.5 and 2
 
 # Training Procedure
 N_EP_RUNNING_AVERAGE = 50
-
+EARLY_STOPPING_THRESHOLD = -30
 
 ##############################################
 
@@ -71,7 +71,6 @@ def trial_run(agent, random=False):
     # the average number of steps per episode
     episode_reward_list = []  # this list contains the total reward per episode
     episode_number_of_steps = []  # this list contains the number of steps per episode
-
 
     ### Training process
 
@@ -95,15 +94,14 @@ def trial_run(agent, random=False):
             else:
                 state_tensor = torch.tensor(state, requires_grad=False, dtype=torch.float32)
                 # Returns the argmax of the network
-                no_mask = torch.tensor(np.ones(N_ACTIONS), requires_grad=False, dtype=torch.float32)
-                action = torch.argmax(agent(state_tensor, no_mask)).item()
+                action = torch.argmax(agent(state_tensor)).item()
 
             # Get next state and reward.  The done variable
             # will be True if you reached the goal position,
             # False otherwise
             next_state, reward, done, _ = env.step(action)
 
-            #Utils.print_SARSD(state, action, next_state, reward, done)
+            # Utils.print_SARSD(state, action, next_state, reward, done)
 
             # Update episode reward
             total_episode_reward += reward
@@ -155,6 +153,9 @@ def training_DQN(agent, target, URL):
     # It shows a nice progression bar that you can update with useful information
     EPISODES = trange(N_EPISODES, desc='Episode: ', leave=True)
 
+    n_episodes_so_far = 0
+    running_average_reward = int("inf")
+
     for k in EPISODES:
         # Reset environment data and initialize variables
         done = False
@@ -184,18 +185,27 @@ def training_DQN(agent, target, URL):
         # Updates the tqdm update bar with fresh information
         # (episode number, total reward of the last episode, total number of Steps
         # of the last episode, average reward, average number of steps)
+        running_average_reward_new = Utils.running_average(episode_reward_list, N_EP_RUNNING_AVERAGE)[-1]
         EPISODES.set_description(
             "Episode {} - Reward/Steps: {:.1f}/{} - Avg. Reward/Steps: {:.1f}/{}".format(
                 k, total_episode_reward, t,
-                Utils.running_average(episode_reward_list, N_EP_RUNNING_AVERAGE)[-1],
+                Utils.running_average(running_average_reward_new, N_EP_RUNNING_AVERAGE)[-1],
                 Utils.running_average(episode_number_of_steps, N_EP_RUNNING_AVERAGE)[-1]))
 
-    Utils.plot_reward_and_steps(N_EPISODES, episode_reward_list, episode_number_of_steps, Utils.running_average,
+        # Early stopping
+        n_episodes_so_far = k
+        average_reward_diff = running_average_reward_new - running_average_reward
+        if average_reward_diff < EARLY_STOPPING_THRESHOLD:
+            break
+
+    Utils.plot_reward_and_steps(n_episodes_so_far, episode_reward_list, episode_number_of_steps, Utils.running_average,
                                 N_EP_RUNNING_AVERAGE)
 
     save_model(agent, URL)
 
-    #return agent
+    # return agent
+
+
 
 
 def save_model(model, URL):
@@ -218,7 +228,16 @@ def q_step(k, agent, state, env, buffer, target, optimizer, t):
 
     states, actions, rewards, next_states, dones = buffer.sample_batch(n=BATCH_SIZE_N)
     y = target_values_y(rewards, target, next_states, done)
-    y = np.array([y, ] * N_ACTIONS).transpose()
+    y_tensor = torch.tensor(y, requires_grad=False, dtype=torch.float32)
+
+    states_tensor = torch.tensor(states, requires_grad=True, dtype=torch.float32)
+    actions_tensor = torch.tensor(actions, requires_grad=False, dtype=torch.int64)
+    predicted_Q_values = agent(states_tensor)
+    actions_tensor = torch.unsqueeze(actions_tensor, -1)
+    # We only want to perform backprop the q-value for the taken action
+    predicted_Q_values_for_taken_actions = torch.gather(predicted_Q_values, -1, actions_tensor)
+
+    '''y = np.array([y, ] * N_ACTIONS).transpose()
 
     actions_mask = np.zeros((BATCH_SIZE_N, N_ACTIONS))
     actions_mask[np.arange(BATCH_SIZE_N), actions] = 1
@@ -229,9 +248,10 @@ def q_step(k, agent, state, env, buffer, target, optimizer, t):
 
     predicted_actions = agent(states_tensor, action_mask_tensor)
     y_tensor = torch.tensor(y, requires_grad=False, dtype=torch.float32)
+    '''
 
     # Compute loss function
-    loss = functional.mse_loss(y_tensor, predicted_actions)
+    loss = functional.mse_loss(predicted_Q_values_for_taken_actions, torch.unsqueeze(y_tensor, -1))
 
     # Compute gradient
     loss.backward()
@@ -256,15 +276,26 @@ def eps_greedy(k, agent, state):
     else:
         state_tensor = torch.tensor(state, requires_grad=False, dtype=torch.float32)
         # Returns the argmax of the network
-        no_mask = torch.tensor(np.ones(N_ACTIONS), requires_grad=False, dtype=torch.float32)
-        return torch.argmax(agent(state_tensor, no_mask)).item()
+        # no_mask = torch.tensor(np.ones(N_ACTIONS), requires_grad=False, dtype=torch.float32)
+        return torch.argmax(agent(state_tensor)).item()
 
 
+"""
 def target_values_y(rewards, target, next_states, done):
     if not done:
         states_tensor = torch.tensor(next_states, requires_grad=False, dtype=torch.float32)
         action_mask_tensor = create_no_mask_tensor()
         Q_theta_prime = target(states_tensor, action_mask_tensor).max(1)[0].detach().numpy()
+        return rewards + DISCOUNT * Q_theta_prime
+    else:
+        return rewards
+"""
+
+
+def target_values_y(rewards, target, next_states, done):
+    if not done:
+        states_tensor = torch.tensor(next_states, requires_grad=False, dtype=torch.float32)
+        Q_theta_prime = target(states_tensor).max(1)[0].detach().numpy()
         return rewards + DISCOUNT * Q_theta_prime
     else:
         return rewards
@@ -320,19 +351,17 @@ def init_buffer():
 
 
 if __name__ == '__main__':
-    # model_url = "./Model1Hidden8Neurons"
-    # model_url = "./Model2Hidden64Neurons"
-    model_url = "./Model1Hidden32Neurons"
+    model_url = 'neural-network-1.pth'
 
     # Random agent initialization
     # agent = RandomAgent(N_ACTIONS)
 
-    # agent = DQNAgentHidden2Neuron64(DIM_STATES, N_ACTIONS)
-    # target = DQNAgentHidden2Neuron64(DIM_STATES, N_ACTIONS)
+    # agent = DQNAgentHidden1(DIM_STATES, N_ACTIONS)
+    # target = DQNAgentHidden1(DIM_STATES, N_ACTIONS)
+    agent = DQNAgentHidden2(DIM_STATES, N_ACTIONS)
+    # target = DQNAgentHidden2(DIM_STATES, N_ACTIONS)
     # training_DQN(agent, target, model_url)
 
-    agent = DQNAgentHidden1(DIM_STATES, N_ACTIONS)
     load_model(agent, model_url)
 
-
-    # trial_run(agent, random=False)
+    trial_run(agent, random=False)
