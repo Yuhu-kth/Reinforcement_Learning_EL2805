@@ -36,24 +36,26 @@ N_ACTIONS = 4  # Number of available actions
 DIM_STATES = 8  # State dimensionality
 
 #  Hyper parameters
-DISCOUNT = 0.1
-BUFFER_SIZE = 30000  # Should be 5000-30000
-BUFFER_EXP_START = 10000
-N_EPISODES = 3000  # Should be 100-1000
+DISCOUNT = 0.9
+BUFFER_SIZE = 10000  # Should be 5000-30000
+BUFFER_EXP_START = 10000  # Fyller den full enligt DeepMind pappret https://towardsdatascience.com/deep-q-network-dqn-ii-b6bf911b6b2c
+N_EPISODES = 1000  # Should be 100-1000
 Z = N_EPISODES * 0.95  # Z is usually 90 − 95% of the total number of episodes
-BATCH_SIZE_N = 16  # Should 4-128
+BATCH_SIZE_N = 32  # Should 4-128
 C = BUFFER_SIZE / BATCH_SIZE_N  # Update frequency of the target neural network
-DECAY_MAX = 0.5
-DECAY_MIN = 0.1
+DECAY_MAX = 0.99
+DECAY_MIN = 0.05
 EPS_LINEAR = True
 
 # Hyper parameters, Neural Network
-LEARNING_RATE = 10e-4  # Should be between 10e-3 and 10e-4
-CLIPPING_VALUE = 0.5  # 0.5 and 2
+LEARNING_RATE = 5*(10e-4)  # Should be between 10e-3 and 10e-4
+CLIPPING_VALUE = 1  # 0.5 and 2
+HIDDEN_SIZE = 64
+N_HIDDEN = 2
 
 # Training Procedure
 N_EP_RUNNING_AVERAGE = 50
-EARLY_STOPPING_THRESHOLD = 1
+EARLY_STOPPING_THRESHOLD = 100
 
 
 ##############################################
@@ -65,13 +67,9 @@ def main():
     # Random agent initialization
     # agent = RandomAgent(N_ACTIONS)
 
-    # agent = DQNAgentHidden1(DIM_STATES, N_ACTIONS)
-    # target = DQNAgentHidden1(DIM_STATES, N_ACTIONS)
-    agent = DQNAgentHidden2(DIM_STATES, N_ACTIONS)
-    target = DQNAgentHidden2(DIM_STATES, N_ACTIONS)
-    training_DQN(agent, target, model_url)
+    training_DQN(model_url)
 
-    # load_model(agent, model_url)
+    # model = load_model(model_url)
 
     # trial_run(agent, random=False)
 
@@ -144,10 +142,17 @@ def trial_run(agent, random=False):
                                 N_EP_RUNNING_AVERAGE)
 
 
-def training_DQN(main_network, target_network, URL):
+def training_DQN(URL):
     # Import and initialize the discrete Lunar Laner Environment
     env = gym.make('LunarLander-v2')
     env.reset()
+
+    if N_HIDDEN == 1:
+        main_network = DQNAgentHidden1(DIM_STATES, N_ACTIONS, HIDDEN_SIZE)
+        target_network = copy.deepcopy(main_network)
+    else:
+        main_network = DQNAgentHidden2(DIM_STATES, N_ACTIONS, HIDDEN_SIZE)
+        target_network = copy.deepcopy(main_network)
 
     # We will use these variables to compute the average episodic reward and
     # the average number of steps per episode
@@ -218,12 +223,14 @@ def training_DQN(main_network, target_network, URL):
 
 
 def save_model(model, URL):
-    torch.save(model.state_dict(), URL)
+    # torch.save(model.state_dict(), URL)
+    torch.save(model, URL)
 
 
-def load_model(model, URL):
+def load_model(URL):
     ### Load model ###
-    model.load_state_dict(torch.load(URL))
+    # model.load_state_dict(torch.load(URL))
+    return torch.load(URL)
 
 
 def q_step(k, main_network, state, env, buffer, target_network, optimizer, c):
@@ -234,7 +241,6 @@ def q_step(k, main_network, state, env, buffer, target_network, optimizer, c):
     # Append experience to the buffer
     exp_z = Experience(state, action, reward, next_state, done)
     buffer.append(exp_z)
-    print(len(buffer))
 
     # Utils.print_SARSD(state, action, next_state, reward, done)
 
@@ -288,13 +294,18 @@ def eps_greedy(k, agent, state):
     else:
         eps_k = Utils.decay_exp(DECAY_MIN, DECAY_MAX, k, Z)
 
-    p = np.random.uniform(0, 1)
+    p = np.random.random()
+    # print(p, " < ", eps_k)
     if p < eps_k:
         return np.random.choice(N_ACTIONS)
     else:
         state_tensor = torch.tensor(state, requires_grad=False, dtype=torch.float32)
         # no_mask = torch.tensor(np.ones(N_ACTIONS), requires_grad=False, dtype=torch.float32)
-        return torch.argmax(agent(state_tensor)).item()  # Returns the argmax of the network # Check this???
+        evaluation = agent(state_tensor)
+        # print(evaluation)
+        argmax_value = torch.argmax(evaluation).item()
+        # print(argmax_value)
+        return argmax_value  # Returns the argmax of the network # Check this???
 
 
 """

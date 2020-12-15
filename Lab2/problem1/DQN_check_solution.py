@@ -17,7 +17,6 @@
 import numpy as np
 import gym
 import torch
-from Lab2.problem1.DQN_problem import create_no_mask_tensor
 from tqdm import trange
 
 def running_average(x, N):
@@ -64,7 +63,7 @@ for i in EPISODES:
         # will be True if you reached the goal position,
         # False otherwise
 
-        q_values = model(torch.tensor([state]), create_no_mask_tensor())
+        q_values = model(torch.tensor([state]))
         _, action = torch.max(q_values, axis=1)
         next_state, reward, done, _ = env.step(action.item())
 

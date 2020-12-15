@@ -73,15 +73,17 @@ class RandomAgent(Agent):
 
 # Will also be used for Target Network
 class DQNAgentHidden2(nn.Module):
-    def __init__(self, state_space_size: int, n_actions: int):
+    def __init__(self, state_space_size: int, n_actions: int, hidden_size: int):
         super().__init__()
         # N hidden layers should not be more than 2
 
-        self.hidden_size = 64  # Should be between 8-128
+        self.hidden_size = hidden_size  # Should be between 8-128
+
         self.input_layer = nn.Linear(state_space_size, self.hidden_size)
         self.input_layer_activation = nn.ReLU()
         self.hidden_layer = nn.Linear(self.hidden_size, self.hidden_size)
         self.hidden_layer_activation = nn.ReLU()
+
         self.output_layer = nn.Linear(self.hidden_size, n_actions)
 
     """
@@ -104,7 +106,6 @@ class DQNAgentHidden2(nn.Module):
         # Action is a one-hot encoded array during training indicating what action is relevant for training
     def forward(self, state):
         # Compute first layer
-
         l1 = self.input_layer(state)
         l1 = self.input_layer_activation(l1)
         l2 = self.hidden_layer(l1)
@@ -123,11 +124,11 @@ class DQNAgentHidden2(nn.Module):
 
 # Will also be used for Target Network
 class DQNAgentHidden1(nn.Module):
-    def __init__(self, state_space_size: int, n_actions: int):
+    def __init__(self, state_space_size: int, n_actions: int, hidden_size):
         super().__init__()
         # N hidden layers should not be more than 2
 
-        self.hidden_size = 8  # Should be between 8-128
+        self.hidden_size = hidden_size  # Should be between 8-128
         self.input_layer = nn.Linear(state_space_size, self.hidden_size)
         self.input_layer_activation = nn.ReLU()
         self.output_layer = nn.Linear(self.hidden_size, n_actions)
