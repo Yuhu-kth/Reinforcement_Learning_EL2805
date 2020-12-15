@@ -36,15 +36,15 @@ N_ACTIONS = 4  # Number of available actions
 DIM_STATES = 8  # State dimensionality
 
 #  Hyper parameters
-DISCOUNT = 0.05
-BUFFER_SIZE = 10000  # Should be 5000-30000
-BUFFER_EXP_START = 1000
-N_EPISODES = 1000  # Should be 100-1000
+DISCOUNT = 0.1
+BUFFER_SIZE = 30000  # Should be 5000-30000
+BUFFER_EXP_START = 10000
+N_EPISODES = 3000  # Should be 100-1000
 Z = N_EPISODES * 0.95  # Z is usually 90 − 95% of the total number of episodes
-BATCH_SIZE_N = 4  # Should 4-128
+BATCH_SIZE_N = 16  # Should 4-128
 C = BUFFER_SIZE / BATCH_SIZE_N  # Update frequency of the target neural network
 DECAY_MAX = 0.5
-DECAY_MIN = 0.05
+DECAY_MIN = 0.1
 EPS_LINEAR = True
 
 # Hyper parameters, Neural Network
@@ -53,7 +53,7 @@ CLIPPING_VALUE = 0.5  # 0.5 and 2
 
 # Training Procedure
 N_EP_RUNNING_AVERAGE = 50
-EARLY_STOPPING_THRESHOLD = 200
+EARLY_STOPPING_THRESHOLD = 1
 
 
 ##############################################
@@ -234,6 +234,7 @@ def q_step(k, main_network, state, env, buffer, target_network, optimizer, c):
     # Append experience to the buffer
     exp_z = Experience(state, action, reward, next_state, done)
     buffer.append(exp_z)
+    print(len(buffer))
 
     # Utils.print_SARSD(state, action, next_state, reward, done)
 
@@ -269,8 +270,8 @@ def q_step(k, main_network, state, env, buffer, target_network, optimizer, c):
     # Compute gradient
     loss.backward()
 
-    # Clip gradient norm to 1
-    nn.utils.clip_grad_norm_(main_network.parameters(), max_norm=1.)
+    # Clip gradient norm to CLIPPING_VALUE
+    nn.utils.clip_grad_norm_(main_network.parameters(), max_norm=CLIPPING_VALUE)
 
     # Perform backward pass (backpropagation)
     optimizer.step()
@@ -287,13 +288,13 @@ def eps_greedy(k, agent, state):
     else:
         eps_k = Utils.decay_exp(DECAY_MIN, DECAY_MAX, k, Z)
 
-    p = np.random.random()
+    p = np.random.uniform(0, 1)
     if p < eps_k:
         return np.random.choice(N_ACTIONS)
     else:
         state_tensor = torch.tensor(state, requires_grad=False, dtype=torch.float32)
         # no_mask = torch.tensor(np.ones(N_ACTIONS), requires_grad=False, dtype=torch.float32)
-        return torch.argmax(agent(state_tensor)).item()  # Returns the argmax of the network
+        return torch.argmax(agent(state_tensor)).item()  # Returns the argmax of the network # Check this???
 
 
 """
