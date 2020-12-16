@@ -38,7 +38,7 @@ DIM_STATES = 8  # State dimensionality
 DISCOUNT = 0.99
 BUFFER_SIZE = 10000  # Should be 5000-30000
 BUFFER_EXP_START = 5000  # Fyller den full enligt DeepMind pappret https://towardsdatascience.com/deep-q-network-dqn-ii-b6bf911b6b2c
-N_EPISODES = 1000  # Should be 100-1000
+N_EPISODES = 600  # Should be 100-1000
 Z = N_EPISODES * 0.95  # Z is usually 90 − 95% of the total number of episodes
 BATCH_SIZE_N = 8  # Should 4-128
 C = int(BUFFER_SIZE / BATCH_SIZE_N)  # Update frequency of the target neural network
@@ -69,78 +69,6 @@ def main():
     # agent = RandomAgent(N_ACTIONS)
 
     training_DQN(model_url)
-
-    # model = load_model(model_url)
-
-    # trial_run(agent, random=False)
-
-
-def trial_run(agent, random=False):
-    # Import and initialize the discrete Lunar Laner Environment
-    env = gym.make('LunarLander-v2')
-    env.reset()
-
-    # We will use these variables to compute the average episodic reward and
-    # the average number of steps per episode
-    episode_reward_list = []  # this list contains the total reward per episode
-    episode_number_of_steps = []  # this list contains the number of steps per episode
-
-    ### Training process
-
-    # trange is an alternative to range in python, from the tqdm library
-    # It shows a nice progression bar that you can update with useful information
-    EPISODES = trange(N_EPISODES, desc='Episode: ', leave=True)
-
-    for i in EPISODES:
-        # Reset enviroment data and initialize variables
-        done = False
-        state = env.reset()  # State shape (x-pos, y-pos, x-velocity, y-velocity, lander-angle, angular-velocity,
-        # left-contact point bool, right-contact point bool)
-        total_episode_reward = 0.
-        t = 0
-        while not done:
-            env.render()
-
-            if random:
-                # Take a random action
-                action = agent.forward(state)
-            else:
-                state_tensor = torch.tensor(state, requires_grad=False, dtype=torch.float32)
-                # Returns the argmax of the network
-                action = torch.argmax(agent(state_tensor)).item()
-
-            # Get next state and reward.  The done variable
-            # will be True if you reached the goal position,
-            # False otherwise
-            next_state, reward, done, _ = env.step(action)
-
-            # Utils.print_SARSD(state, action, next_state, reward, done)
-
-            # Update episode reward
-            total_episode_reward += reward
-
-            # Update state for next iteration
-            state = next_state
-            t += 1
-
-        # Append episode reward and total number of steps
-        episode_reward_list.append(total_episode_reward)
-        episode_number_of_steps.append(t)
-
-        # Close environment
-        env.close()
-
-        # Updates the tqdm update bar with fresh information
-        # (episode number, total reward of the last episode, total number of Steps
-        # of the last episode, average reward, average number of steps)
-        EPISODES.set_description(
-            "Episode {} - Reward/Steps: {:.1f}/{} - Avg. Reward/Steps: {:.1f}/{}".format(
-                i, total_episode_reward, t,
-                Utils.running_average(episode_reward_list, N_EP_RUNNING_AVERAGE)[-1],
-                Utils.running_average(episode_number_of_steps, N_EP_RUNNING_AVERAGE)[-1]))
-
-    Utils.plot_reward_and_steps(N_EPISODES, episode_reward_list, episode_number_of_steps, Utils.running_average,
-                                N_EP_RUNNING_AVERAGE)
 
 
 def training_DQN(URL):
