@@ -63,7 +63,7 @@ EARLY_STOPPING_THRESHOLD = 50
 
 def main():
     # model_url = 'neural-network-1.pth'
-    model_url = 'neural-network-3.pth'
+    model_url = 'neural-network-2.pth'
 
     # Random agent initialization
     # agent = RandomAgent(N_ACTIONS)
