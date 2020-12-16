@@ -74,7 +74,7 @@ class RandomAgent(Agent):
 # Will also be used for Target Network
 class DQNAgentHidden2(nn.Module):
     def __init__(self, state_space_size: int, n_actions: int, hidden_size: int):
-        super().__init__()
+        super(DQNAgentHidden2, self).__init__()
         # N hidden layers should not be more than 2
 
         self.hidden_size = hidden_size  # Should be between 8-128
@@ -125,7 +125,7 @@ class DQNAgentHidden2(nn.Module):
 # Will also be used for Target Network
 class DQNAgentHidden1(nn.Module):
     def __init__(self, state_space_size: int, n_actions: int, hidden_size):
-        super().__init__()
+        super(DQNAgentHidden1, self).__init__()
         # N hidden layers should not be more than 2
 
         self.hidden_size = hidden_size  # Should be between 8-128
@@ -159,3 +159,56 @@ class DQNAgentHidden1(nn.Module):
 
     """
 
+###########################################
+
+# Architecture for a two hidden layer network
+
+###########################################
+
+# Will also be used for Target Network
+class DQNAgentHidden3(nn.Module):
+    def __init__(self, state_space_size: int, n_actions: int, hidden_size: int):
+        super(DQNAgentHidden3, self).__init__()
+        # N hidden layers should not be more than 2
+
+        self.hidden_size = hidden_size  # Should be between 8-128
+
+        self.input_layer = nn.Linear(state_space_size, self.hidden_size)
+        self.input_layer_activation = nn.ReLU()
+        self.hidden_layer_1 = nn.Linear(self.hidden_size, self.hidden_size)
+        self.hidden_layer_activation_1 = nn.ReLU()
+        self.hidden_layer_2 = nn.Linear(self.hidden_size, self.hidden_size)
+        self.hidden_layer_activation_2 = nn.ReLU()
+
+        self.output_layer = nn.Linear(self.hidden_size, n_actions)
+
+    """
+    # State is 8-dim array representation of the state
+    # Action is a one-hot encoded array during training indicating what action is relevant for training
+    def forward(self, state, action):
+        # Compute first layer
+
+        l1 = self.input_layer(state)
+        l1 = self.input_layer_activation(l1)
+        l2 = self.hidden_layer(l1)
+        l2 = self.hidden_layer(l2)
+
+        # Compute output layer
+        out = self.output_layer(l2)
+        return out * action
+    """
+
+        # State is 8-dim array representation of the state
+        # Action is a one-hot encoded array during training indicating what action is relevant for training
+    def forward(self, state):
+        # Compute first layer
+        l1 = self.input_layer(state)
+        l1 = self.input_layer_activation(l1)
+        l2 = self.hidden_layer_1(l1)
+        l2 = self.hidden_layer_activation_1(l2)
+        l3 = self.hidden_layer_2(l2)
+        l3 = self.hidden_layer_activation_2(l3)
+
+        # Compute output layer
+        out = self.output_layer(l3)
+        return out

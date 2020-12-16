@@ -24,8 +24,7 @@ import copy
 from tqdm import trange
 from Lab2.problem1.ExperienceReplayBuffer import ExperienceReplayBuffer, Experience
 from Lab2.problem1.DQN_agent import RandomAgent
-from Lab2.problem1.DQN_agent import DQNAgentHidden1
-from Lab2.problem1.DQN_agent import DQNAgentHidden2
+from Lab2.problem1.DQN_agent import DQNAgentHidden1, DQNAgentHidden2, DQNAgentHidden3
 from Lab2.problem1 import Utils as Utils
 
 #############################################
@@ -36,33 +35,35 @@ N_ACTIONS = 4  # Number of available actions
 DIM_STATES = 8  # State dimensionality
 
 #  Hyper parameters
-DISCOUNT = 0.9
+DISCOUNT = 0.99
 BUFFER_SIZE = 10000  # Should be 5000-30000
-BUFFER_EXP_START = 10000  # Fyller den full enligt DeepMind pappret https://towardsdatascience.com/deep-q-network-dqn-ii-b6bf911b6b2c
+BUFFER_EXP_START = 5000  # Fyller den full enligt DeepMind pappret https://towardsdatascience.com/deep-q-network-dqn-ii-b6bf911b6b2c
 N_EPISODES = 1000  # Should be 100-1000
 Z = N_EPISODES * 0.95  # Z is usually 90 − 95% of the total number of episodes
-BATCH_SIZE_N = 32  # Should 4-128
-C = BUFFER_SIZE / BATCH_SIZE_N  # Update frequency of the target neural network
+BATCH_SIZE_N = 8  # Should 4-128
+C = int(BUFFER_SIZE / BATCH_SIZE_N)  # Update frequency of the target neural network
 DECAY_MAX = 0.99
 DECAY_MIN = 0.05
 EPS_LINEAR = True
 
 # Hyper parameters, Neural Network
-LEARNING_RATE = 5*(10e-4)  # Should be between 10e-3 and 10e-4
+LEARNING_RATE = 2 * (10e-4)  # Should be between 10e-3 and 10e-4
 CLIPPING_VALUE = 1  # 0.5 and 2
 HIDDEN_SIZE = 64
 N_HIDDEN = 2
+MOMENTUM = 0.5
 
 # Training Procedure
 N_EP_RUNNING_AVERAGE = 50
-EARLY_STOPPING_THRESHOLD = 100
+EARLY_STOPPING_THRESHOLD = 50
 
 
 ##############################################
 
 
 def main():
-    model_url = 'neural-network-1.pth'
+    # model_url = 'neural-network-1.pth'
+    model_url = 'neural-network-3.pth'
 
     # Random agent initialization
     # agent = RandomAgent(N_ACTIONS)
@@ -148,10 +149,16 @@ def training_DQN(URL):
     env.reset()
 
     if N_HIDDEN == 1:
+        print("Init network 1")
         main_network = DQNAgentHidden1(DIM_STATES, N_ACTIONS, HIDDEN_SIZE)
         target_network = copy.deepcopy(main_network)
-    else:
+    elif N_HIDDEN == 2:
+        print("Init network 2")
         main_network = DQNAgentHidden2(DIM_STATES, N_ACTIONS, HIDDEN_SIZE)
+        target_network = copy.deepcopy(main_network)
+    else:
+        print("Init network 3")
+        main_network = DQNAgentHidden3(DIM_STATES, N_ACTIONS, HIDDEN_SIZE)
         target_network = copy.deepcopy(main_network)
 
     # We will use these variables to compute the average episodic reward and
@@ -161,7 +168,7 @@ def training_DQN(URL):
 
     buffer = init_buffer()
 
-    # optimizer = torch.optim.SGD(main_network.parameters(), lr=LEARNING_RATE)
+    # optimizer = torch.optim.SGD(main_network.parameters(), lr=LEARNING_RATE, momentum=MOMENTUM)
     optimizer = torch.optim.Adam(main_network.parameters(), lr=LEARNING_RATE)
 
     ### Training process
@@ -184,7 +191,15 @@ def training_DQN(URL):
         while not done:
             # env.render()
 
-            next_state, reward, done, target_network = q_step(k, main_network, state, env, buffer, target_network, optimizer, c)
+            next_state, reward, done = q_step(k, main_network, state, env, buffer, target_network, optimizer)
+
+            #print(buffer.buffer)
+
+            if c == C:
+                target_network = copy.deepcopy(main_network)
+                print(C)
+                c = 0
+                print("Hallo")
 
             # Update episode reward
             total_episode_reward += reward
@@ -233,10 +248,14 @@ def load_model(URL):
     return torch.load(URL)
 
 
-def q_step(k, main_network, state, env, buffer, target_network, optimizer, c):
+def q_step(k, main_network, state, env, buffer, target_network, optimizer):
     optimizer.zero_grad()  # Necessery to reset the gradients since pytorch accumulates them by default
 
-    action = eps_greedy(k, main_network, state)
+    #env.render()
+
+    main_network.eval()
+    with torch.no_grad():
+        action = eps_greedy(k, main_network, state)
     next_state, reward, done, _ = env.step(action)
     # Append experience to the buffer
     exp_z = Experience(state, action, reward, next_state, done)
@@ -244,13 +263,14 @@ def q_step(k, main_network, state, env, buffer, target_network, optimizer, c):
 
     # Utils.print_SARSD(state, action, next_state, reward, done)
 
+    main_network.train()
     states, actions, rewards, next_states, dones = buffer.sample_batch(n=BATCH_SIZE_N)
     y = target_values_y(rewards, target_network, next_states, done)
     y_tensor = torch.tensor(y, requires_grad=False, dtype=torch.float32)
 
     states_tensor = torch.tensor(states, requires_grad=False, dtype=torch.float32)
     actions_tensor = torch.tensor(actions, requires_grad=False, dtype=torch.int64)
-    predicted_Q_values = main_network(states_tensor)
+    predicted_Q_values = main_network.forward(states_tensor)
 
     actions_tensor = torch.unsqueeze(actions_tensor, -1)
     # We only want to perform backprop the q-value for the taken action
@@ -276,16 +296,16 @@ def q_step(k, main_network, state, env, buffer, target_network, optimizer, c):
     # Compute gradient
     loss.backward()
 
+    # print(main_network.input_layer.weight.grad)
+
     # Clip gradient norm to CLIPPING_VALUE
     nn.utils.clip_grad_norm_(main_network.parameters(), max_norm=CLIPPING_VALUE)
 
     # Perform backward pass (backpropagation)
     optimizer.step()
 
-    if c % C == 0 and c != 0:
-        target_network = copy.deepcopy(main_network)
+    return next_state, reward, done
 
-    return next_state, reward, done, target_network
 
 
 def eps_greedy(k, agent, state):
@@ -297,7 +317,8 @@ def eps_greedy(k, agent, state):
     p = np.random.random()
     # print(p, " < ", eps_k)
     if p < eps_k:
-        return np.random.choice(N_ACTIONS)
+        action = np.random.choice(N_ACTIONS)
+        return action
     else:
         state_tensor = torch.tensor(state, requires_grad=False, dtype=torch.float32)
         # no_mask = torch.tensor(np.ones(N_ACTIONS), requires_grad=False, dtype=torch.float32)
@@ -323,8 +344,11 @@ def target_values_y(rewards, target, next_states, done):
 def target_values_y(rewards, target_network, next_states, done):
     if not done:
         states_tensor = torch.tensor(next_states, requires_grad=False, dtype=torch.float32)
-        Q_theta_prime = target_network(states_tensor).max(1)[0].detach().numpy()
-        return rewards + DISCOUNT * Q_theta_prime
+        target_values = target_network(states_tensor)
+        # Q_theta_prime = target_network(states_tensor).max(1)[0].detach().numpy()
+        Q_theta_prime = target_values.max(1)[0].detach().numpy()
+        target_value = rewards + DISCOUNT * Q_theta_prime
+        return target_value
     else:
         return rewards
 
