@@ -36,8 +36,8 @@ DIM_STATES = 8  # State dimensionality
 
 #  Hyper parameters
 DISCOUNT = 0.99
-BUFFER_SIZE = 10000  # Should be 5000-30000
-BUFFER_EXP_START = 5000  # Fyller den full enligt DeepMind pappret https://towardsdatascience.com/deep-q-network-dqn-ii-b6bf911b6b2c
+BUFFER_SIZE = 15000  # Should be 5000-30000
+BUFFER_EXP_START = 5000  # Fyller den full enligt DeepMind pappret
 N_EPISODES = 600  # Should be 100-1000
 Z = N_EPISODES * 0.95  # Z is usually 90 − 95% of the total number of episodes
 BATCH_SIZE_N = 8  # Should 4-128
@@ -63,7 +63,7 @@ EARLY_STOPPING_THRESHOLD = 50
 
 def main():
     # model_url = 'neural-network-1.pth'
-    model_url = 'neural-network-2.pth'
+    model_url = ''
 
     # Random agent initialization
     # agent = RandomAgent(N_ACTIONS)
@@ -162,7 +162,7 @@ def training_DQN(URL):
     Utils.plot_reward_and_steps(n_episodes_so_far, episode_reward_list, episode_number_of_steps, Utils.running_average,
                                 N_EP_RUNNING_AVERAGE)
 
-    save_model(main_network, URL)
+    # save_model(main_network, URL)
 
 
 def save_model(model, URL):

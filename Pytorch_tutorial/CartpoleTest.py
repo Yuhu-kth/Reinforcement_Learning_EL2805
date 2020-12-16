@@ -24,7 +24,7 @@ import torch.nn.functional
 import torch.optim as optim
 import matplotlib.pyplot as plt
 
-MODEL_URL = "./Model"
+MODEL_URL = "./Model1Hidden8Neurons"
 SLOW_DOWN_RATE = 1000000
 
 ### Experience class ###
