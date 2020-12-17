@@ -2,7 +2,6 @@
 import gym
 import torch
 import numpy as np
-import matplotlib.pyplot as plt
 import Lab2.problem1.DQN_agent as DQN_agent
 import matplotlib.pyplot as plt
 from tqdm import trange
@@ -95,8 +94,6 @@ def Q(state):
 def arg_Q(state):
     states_tensor = torch.tensor(state, requires_grad=False, dtype=torch.float32)
     target_values = model(states_tensor)
-    print(target_values)
-    print(torch.argmax(target_values).item())
     return torch.argmax(target_values).item()
 
 
@@ -145,5 +142,5 @@ def plot_argmax_Q_values(y, w):
 
 
 if __name__ == '__main__':
-    #main_experiment_f()
+    # main_experiment_f()
     main_experiment_g()

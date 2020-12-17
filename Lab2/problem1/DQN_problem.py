@@ -37,7 +37,7 @@ DIM_STATES = 8  # State dimensionality
 #  Hyper parameters
 DISCOUNT = 0.99
 BUFFER_SIZE = 10000  # Should be 5000-30000
-BUFFER_EXP_START = 5000  # Fyller den full enligt DeepMind pappret
+BUFFER_EXP_START = 5000  # Typically filling it half-full
 N_EPISODES = 600  # Should be 100-1000
 Z = N_EPISODES * 0.95  # Z is usually 90 − 95% of the total number of episodes
 BATCH_SIZE_N = 8  # Should 4-128
@@ -49,25 +49,19 @@ EPS_LINEAR = True
 # Hyper parameters, Neural Network
 LEARNING_RATE = 2 * (10e-4)  # Should be between 10e-3 and 10e-4
 CLIPPING_VALUE = 1  # 0.5 and 2
-HIDDEN_SIZE = 64
-N_HIDDEN = 2
-MOMENTUM = 0.5
+HIDDEN_SIZE = 64  # Nodes per hidden layer
+N_HIDDEN = 3  # Number of hidden layer
 
 # Training Procedure
 N_EP_RUNNING_AVERAGE = 50
-EARLY_STOPPING_THRESHOLD = 50
+EARLY_STOPPING_THRESHOLD = 50  # After the average reward reaches this value, we stop
 
 
 ##############################################
 
 
 def main():
-    # model_url = 'neural-network-1.pth'
-    model_url = ''
-
-    # Random agent initialization
-    # agent = RandomAgent(N_ACTIONS)
-
+    model_url = 'neural-network-1.pth'
     training_DQN(model_url)
 
 
@@ -96,7 +90,6 @@ def training_DQN(URL):
 
     buffer = init_buffer()
 
-    # optimizer = torch.optim.SGD(main_network.parameters(), lr=LEARNING_RATE, momentum=MOMENTUM)
     optimizer = torch.optim.Adam(main_network.parameters(), lr=LEARNING_RATE)
 
     ### Training process
@@ -117,17 +110,13 @@ def training_DQN(URL):
         total_episode_reward = 0.
         t = 0
         while not done:
-            # env.render()
-
             next_state, reward, done = q_step(k, main_network, state, env, buffer, target_network, optimizer)
-
-            #print(buffer.buffer)
 
             if c == C:
                 target_network = copy.deepcopy(main_network)
                 print(C)
                 c = 0
-                print("Hallo")
+                print("Updating target network!")
 
             # Update episode reward
             total_episode_reward += reward
@@ -162,24 +151,20 @@ def training_DQN(URL):
     Utils.plot_reward_and_steps(n_episodes_so_far, episode_reward_list, episode_number_of_steps, Utils.running_average,
                                 N_EP_RUNNING_AVERAGE)
 
-    # save_model(main_network, URL)
+    save_model(main_network, URL)
 
 
 def save_model(model, URL):
-    # torch.save(model.state_dict(), URL)
     torch.save(model, URL)
 
 
 def load_model(URL):
     ### Load model ###
-    # model.load_state_dict(torch.load(URL))
     return torch.load(URL)
 
 
 def q_step(k, main_network, state, env, buffer, target_network, optimizer):
     optimizer.zero_grad()  # Necessery to reset the gradients since pytorch accumulates them by default
-
-    #env.render()
 
     main_network.eval()
     with torch.no_grad():
@@ -188,8 +173,6 @@ def q_step(k, main_network, state, env, buffer, target_network, optimizer):
     # Append experience to the buffer
     exp_z = Experience(state, action, reward, next_state, done)
     buffer.append(exp_z)
-
-    # Utils.print_SARSD(state, action, next_state, reward, done)
 
     main_network.train()
     states, actions, rewards, next_states, dones = buffer.sample_batch(n=BATCH_SIZE_N)
@@ -204,27 +187,11 @@ def q_step(k, main_network, state, env, buffer, target_network, optimizer):
     # We only want to perform backprop the q-value for the taken action
     predicted_Q_values_for_taken_actions = torch.gather(predicted_Q_values, -1, actions_tensor)
 
-    # Old way of 'removing' irrelevant action outputs
-    '''y = np.array([y, ] * N_ACTIONS).transpose()
-
-    actions_mask = np.zeros((BATCH_SIZE_N, N_ACTIONS))
-    actions_mask[np.arange(BATCH_SIZE_N), actions] = 1
-
-    y *= actions_mask
-    states_tensor = torch.tensor(states, requires_grad=True, dtype=torch.float32)
-    action_mask_tensor = torch.tensor(actions_mask, requires_grad=False, dtype=torch.float32)
-
-    predicted_actions = agent(states_tensor, action_mask_tensor)
-    y_tensor = torch.tensor(y, requires_grad=False, dtype=torch.float32)
-    '''
-
     # Compute loss function
     loss = functional.mse_loss(predicted_Q_values_for_taken_actions, torch.unsqueeze(y_tensor, -1))
 
     # Compute gradient
     loss.backward()
-
-    # print(main_network.input_layer.weight.grad)
 
     # Clip gradient norm to CLIPPING_VALUE
     nn.utils.clip_grad_norm_(main_network.parameters(), max_norm=CLIPPING_VALUE)
@@ -235,7 +202,6 @@ def q_step(k, main_network, state, env, buffer, target_network, optimizer):
     return next_state, reward, done
 
 
-
 def eps_greedy(k, agent, state):
     if EPS_LINEAR:
         eps_k = Utils.decay_linear(DECAY_MIN, DECAY_MAX, k, Z)
@@ -243,46 +209,25 @@ def eps_greedy(k, agent, state):
         eps_k = Utils.decay_exp(DECAY_MIN, DECAY_MAX, k, Z)
 
     p = np.random.random()
-    # print(p, " < ", eps_k)
     if p < eps_k:
         action = np.random.choice(N_ACTIONS)
         return action
     else:
         state_tensor = torch.tensor(state, requires_grad=False, dtype=torch.float32)
-        # no_mask = torch.tensor(np.ones(N_ACTIONS), requires_grad=False, dtype=torch.float32)
         evaluation = agent(state_tensor)
-        # print(evaluation)
         argmax_value = torch.argmax(evaluation).item()
-        # print(argmax_value)
-        return argmax_value  # Returns the argmax of the network # Check this???
-
-
-"""
-def target_values_y(rewards, target, next_states, done):
-    if not done:
-        states_tensor = torch.tensor(next_states, requires_grad=False, dtype=torch.float32)
-        action_mask_tensor = create_no_mask_tensor()
-        Q_theta_prime = target(states_tensor, action_mask_tensor).max(1)[0].detach().numpy()
-        return rewards + DISCOUNT * Q_theta_prime
-    else:
-        return rewards
-"""
+        return argmax_value
 
 
 def target_values_y(rewards, target_network, next_states, done):
     if not done:
         states_tensor = torch.tensor(next_states, requires_grad=False, dtype=torch.float32)
         target_values = target_network(states_tensor)
-        # Q_theta_prime = target_network(states_tensor).max(1)[0].detach().numpy()
         Q_theta_prime = target_values.max(1)[0].detach().numpy()
         target_value = rewards + DISCOUNT * Q_theta_prime
         return target_value
     else:
         return rewards
-
-
-# def create_no_mask_tensor():
-#    return torch.tensor(np.ones((BATCH_SIZE_N, N_ACTIONS)), requires_grad=False, dtype=torch.float32)
 
 
 def init_buffer():

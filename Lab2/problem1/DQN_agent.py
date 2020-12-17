@@ -15,13 +15,7 @@
 
 # Load packages
 import numpy as np
-import torch
 import torch.nn as nn
-import torch.nn.functional
-import torch.optim as optim
-
-N_HIDDEN_LAYERS = 1  # Should not be more than 2
-HIDDEN_SIZE = 8  # Should be between 8-128
 
 
 class Agent(object):
@@ -86,28 +80,12 @@ class DQNAgentHidden2(nn.Module):
 
         self.output_layer = nn.Linear(self.hidden_size, n_actions)
 
-    """
-    # State is 8-dim array representation of the state
-    # Action is a one-hot encoded array during training indicating what action is relevant for training
-    def forward(self, state, action):
-        # Compute first layer
-
-        l1 = self.input_layer(state)
-        l1 = self.input_layer_activation(l1)
-        l2 = self.hidden_layer(l1)
-        l2 = self.hidden_layer(l2)
-
-        # Compute output layer
-        out = self.output_layer(l2)
-        return out * action
-    """
-
-        # State is 8-dim array representation of the state
-        # Action is a one-hot encoded array during training indicating what action is relevant for training
     def forward(self, state):
         # Compute first layer
         l1 = self.input_layer(state)
         l1 = self.input_layer_activation(l1)
+
+        # Compute hidden layer
         l2 = self.hidden_layer(l1)
         l2 = self.hidden_layer_activation(l2)
 
@@ -133,8 +111,6 @@ class DQNAgentHidden1(nn.Module):
         self.input_layer_activation = nn.ReLU()
         self.output_layer = nn.Linear(self.hidden_size, n_actions)
 
-    # State is 8-dim array representation of the state
-    # Action is a one-hot encoded array during training indicating what action is relevant for training
     def forward(self, state):
         # Compute first layer
         l1 = self.input_layer(state)
@@ -145,23 +121,9 @@ class DQNAgentHidden1(nn.Module):
         return out
 
 
-    """
-        # State is 8-dim array representation of the state
-        # Action is a one-hot encoded array during training indicating what action is relevant for training
-        def forward(self, state, action):
-            # Compute first layer
-            l1 = self.input_layer(state)
-            l1 = self.input_layer_activation(l1)
-
-            # Compute output layer
-            out = self.output_layer(l1)
-            return out * action
-
-    """
-
 ###########################################
 
-# Architecture for a two hidden layer network
+# Architecture for a three hidden layer network
 
 ###########################################
 
@@ -182,30 +144,16 @@ class DQNAgentHidden3(nn.Module):
 
         self.output_layer = nn.Linear(self.hidden_size, n_actions)
 
-    """
-    # State is 8-dim array representation of the state
-    # Action is a one-hot encoded array during training indicating what action is relevant for training
-    def forward(self, state, action):
-        # Compute first layer
-
-        l1 = self.input_layer(state)
-        l1 = self.input_layer_activation(l1)
-        l2 = self.hidden_layer(l1)
-        l2 = self.hidden_layer(l2)
-
-        # Compute output layer
-        out = self.output_layer(l2)
-        return out * action
-    """
-
-        # State is 8-dim array representation of the state
-        # Action is a one-hot encoded array during training indicating what action is relevant for training
     def forward(self, state):
         # Compute first layer
         l1 = self.input_layer(state)
         l1 = self.input_layer_activation(l1)
+
+        # Compute second layer
         l2 = self.hidden_layer_1(l1)
         l2 = self.hidden_layer_activation_1(l2)
+
+        # Compute third layer
         l3 = self.hidden_layer_2(l2)
         l3 = self.hidden_layer_activation_2(l3)
 
