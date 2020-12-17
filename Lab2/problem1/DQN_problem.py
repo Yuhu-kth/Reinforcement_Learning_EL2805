@@ -36,7 +36,7 @@ DIM_STATES = 8  # State dimensionality
 
 #  Hyper parameters
 DISCOUNT = 0.99
-BUFFER_SIZE = 15000  # Should be 5000-30000
+BUFFER_SIZE = 10000  # Should be 5000-30000
 BUFFER_EXP_START = 5000  # Fyller den full enligt DeepMind pappret
 N_EPISODES = 600  # Should be 100-1000
 Z = N_EPISODES * 0.95  # Z is usually 90 − 95% of the total number of episodes
