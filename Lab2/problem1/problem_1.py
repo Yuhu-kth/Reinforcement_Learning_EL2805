@@ -13,6 +13,7 @@
 # Last update: 6th October 2020, by alessior@kth.se
 #
 
+
 # Load packages
 import numpy as np
 import gym.envs.box2d.lunar_lander
@@ -50,7 +51,7 @@ EPS_LINEAR = True
 LEARNING_RATE = 2 * (10e-4)  # Should be between 10e-3 and 10e-4
 CLIPPING_VALUE = 1  # 0.5 and 2
 HIDDEN_SIZE = 64  # Nodes per hidden layer
-N_HIDDEN = 3  # Number of hidden layer
+N_HIDDEN = 2  # Number of hidden layer
 
 # Training Procedure
 N_EP_RUNNING_AVERAGE = 50
@@ -61,7 +62,7 @@ EARLY_STOPPING_THRESHOLD = 50  # After the average reward reaches this value, we
 
 
 def main():
-    model_url = 'neural-network-1.pth'
+    model_url = 'neural-network-trash.pth'
     training_DQN(model_url)
 
 
